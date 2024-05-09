@@ -1,5 +1,7 @@
 # -*- coding:utf-8 -*-
 import tools
+import os
+import sys
 
 
 args = tools.getArguments({
@@ -70,10 +72,10 @@ saveTempFile = debug or getattr(args, 's')
 interactive = getattr(args, 'i')
 
 # 临时文件保存路径
-tempFilePath = "../temp/"
+tempFilePath = os.path.dirname(os.path.realpath(sys.argv[0])) + "/temp/"
 
 # 视频文件保存路径
-videoFilePath = "../videos/"
+videoFilePath = os.path.dirname(os.path.realpath(sys.argv[0])) + "/videos/"
 
 # 日志保存路径
-logPath = './logs/'
+logPath = os.path.dirname(os.path.realpath(sys.argv[0])) + '/logs/'

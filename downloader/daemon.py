@@ -102,7 +102,7 @@ class Runner:
         server = DownloadServer(port)
         while True:
             try:
-                print("Listening on port %d for clients..." % port)
+                print("下载助手-青蛙打包改版：Listening on port %d for clients..." % port)
                 server.serve_forever()
             except KeyboardInterrupt:
                 if self.taskDispatcher.task:

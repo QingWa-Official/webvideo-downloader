@@ -1,6 +1,9 @@
-/temp
-/videos
+temp
+videos
 __pycache__
 test.py
 logs/
 *.pyc
+*.spec
+build
+dist
