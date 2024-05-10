@@ -47,12 +47,18 @@ var storage = {
     playinfoBody: null,
 
     // 控制是否自动刷新并下载
-    auto_start: false, 
+    auto_start: false,
     t_start_down: 5000, // 页面刷新后开始下载的时间 单位毫秒
-    t_click_next: 1500, // 开始下载后到点击下一集的时间 单位毫秒
-    t_reload_page: 1500, // 点击下一集到刷新页面的时间 单位毫秒
+    t_click_next: 3000, // 开始下载后到点击下一集的时间 单位毫秒
+    t_reload_page: 3000, // 点击下一集到刷新页面的时间 单位毫秒
     end_num: null,  // 自动下载到多少集(包含)，默认不暂停，可以为 "01" "60", 注意集数需要包含全部集数的数字并且有引号包裹
     //end_num: "06", // 上一行的示例
+
+    // 优先级，如果为空则自动下载最大的视频
+    // down_prior_list:[],
+    // 如果设定了优先级列表，则会从点击下载前的字符串寻找是否包含720p,找到才会下载，未找到会跳过
+    // 越靠前越优先,不区分大小写
+    down_prior_list: ["4k", "1920x1080", "1080p", "720p", "480P"],
 };
 
 var handler = {
@@ -591,17 +597,9 @@ function updateModal({ title, content }) {
             prepareDownload(e.target);
         });
     });
-    res_list = [...storage.modalInfo.content.matchAll(/(\d+)M  <a href=\"(.*)\" class=\"remote \" >/gm)];
-    max_size = 0;
-    max_url = "";
-    for (res of res_list) {
-        if (Number(res[1]) > max_size) {
-            max_size = Number(res[1]);
-            max_url = res[2];
-        };
-    }
+    // 获取最优url
+    var max_url = find_max_url(storage.modalInfo.content, storage.down_prior_list)
     console.log(storage.modalInfo.title)
-    console.log(max_size);
     console.log(max_url);
 
     var payload = {
@@ -612,18 +610,22 @@ function updateModal({ title, content }) {
         type: 'link',
     }
     var end_re = new RegExp(`[^0-9]${storage.end_num}[^0-9]`, "g")
-    if(storage.auto_start && storage.modalInfo.title.match(end_re)){
+    if (storage.auto_start && storage.modalInfo.title.match(end_re)) {
         // 匹配到结束集数,下载最后一集
         setTimeout((p) => {
-            httpCall(p);
+            if (max_url) {
+                httpCall(p);
+            }
         }, storage.t_start_down, payload);
     } else if (storage.auto_start) {
         //触发下载
         setTimeout((p) => {
-            httpCall(p);
+            if (max_url) {
+                httpCall(p);
+            }
             setTimeout(() => {
                 // 腾讯下一集
-                next_btn = document.getElementsByClassName("txp_btn txp_btn_next_u")[0];
+                var next_btn = document.getElementsByClassName("txp_btn txp_btn_next_u")[0];
                 if (!next_btn) {
                     // 爱奇艺下一集
                     next_btn = document.getElementsByClassName("iqp-btn iqp-btn-next")[0];
@@ -896,4 +898,51 @@ function prepare() {
       }
     `);
     });
+}
+
+function find_max_url(down_html, prior_arr) {
+    if (!down_html) {
+        return null;
+    }
+    var video_infos = down_html.trim().split("点击下载</a>")
+    var use_prior = Boolean(prior_arr && prior_arr.length)
+    var prior_index = 9999
+    var max_size = 0
+    var max_url = null
+    for (var video_info of video_infos) {
+        if (video_info.trim()) {
+            var video_group = [...video_info.trim().matchAll(/(.*) (\d+)M  <a href=\"(.*)\" class=\"remote/g)][0];
+            var video_meta = video_group[1]
+            var video_size = Number(video_group[2])
+            var video_url = video_group[3]
+
+            if (use_prior) {
+                var tmp_prior_index = prior_index
+                for (let i = 0; i < prior_arr.length; ++i) {
+                    if (find_sub(video_meta, prior_arr[i])) {
+                        tmp_prior_index = i;
+                        break;
+                    }
+                }
+                if (tmp_prior_index < prior_index) {
+                    prior_index = tmp_prior_index;
+                    max_url = video_url;
+                    max_size = video_size;
+                }
+            } else {
+                if (video_size > max_size) {
+                    max_size = video_size;
+                    max_url = video_url;
+                }
+            }
+
+        }
+    }
+    console.log(`${prior_index} ${max_size} ${max_url}`)
+    return max_url
+}
+
+function find_sub(str, sub_str) {
+    var sub_re = new RegExp(`.*${sub_str}.*`, "ig");
+    return Boolean(str.match(sub_re));
 }
